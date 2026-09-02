@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /events/{eventId}/moments/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|video/.*');
+    }
+
+    match /events/{eventId}/twibbon/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn();
+    }
+  }
+}

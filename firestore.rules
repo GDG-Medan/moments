@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function eventDoc(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data;
+    }
+
+    function isOrganizer(eventId) {
+      return signedIn() && eventDoc(eventId).organizer_uid == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll(['display_name', 'points', 'created_at'])
+        && request.resource.data.points is int
+        && request.resource.data.points >= 0;
+      allow update: if signedIn() && (
+        isOwner(uid)
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['points'])
+      );
+    }
+
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.organizer_uid == request.auth.uid;
+      allow update: if isOrganizer(eventId);
+      allow delete: if isOrganizer(eventId);
+
+      match /members/{uid} {
+        allow read: if signedIn();
+        allow create: if isOwner(uid);
+        allow update: if isOwner(uid) || isOrganizer(eventId);
+        allow delete: if isOwner(uid) || isOrganizer(eventId);
+      }
+
+      match /moments/{momentId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.author_uid == request.auth.uid;
+        allow update: if signedIn() && (
+          resource.data.author_uid == request.auth.uid
+          || (
+            isOrganizer(eventId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['is_highlight', 'ai_note', 'caption', 'hashtags'])
+          )
+          || request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['rating_sum', 'rating_count'])
+        );
+        allow delete: if resource.data.author_uid == request.auth.uid
+          || isOrganizer(eventId);
+
+        match /ratings/{uid} {
+          allow read: if signedIn();
+          allow create, update: if isOwner(uid)
+            && request.resource.data.score is int
+            && request.resource.data.score >= 1
+            && request.resource.data.score <= 5;
+          allow delete: if isOwner(uid);
+        }
+      }
+    }
+  }
+}
