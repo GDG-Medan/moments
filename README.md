@@ -11,6 +11,7 @@ Members join an event room with a QR code, upload photos or videos, apply chapte
 - Client-side compression and filter presets
 - Twibbon overlay for branded exports
 - Gemini captions and hashtags
+- Optional Find photos of me (selfie match) after you contribute, with privacy consent
 - Peer ratings and points
 - Organizer highlight board with Gemini suggestions
 - Share via Web Share API, image download, and caption copy
@@ -88,7 +89,8 @@ Update `.firebaserc` if your project id differs.
 3. Upload a photo with twibbon + filter.
 4. Generate a Gemini caption and copy/share it.
 5. Rate a moment from another profile and watch points update.
-6. Open **Highlights**, run Gemini suggestions, mark a highlight.
+6. After contributing, open **Find photos of me**, accept the privacy notice, selfie-search.
+7. Open **Highlights**, run Gemini suggestions, mark a highlight.
 
 ## Points
 

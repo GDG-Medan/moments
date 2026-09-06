@@ -69,6 +69,8 @@ export type MemberDoc = {
   display_name: string
   joined_at: number
   role: 'organizer' | 'member'
+  face_find_consent_at?: number | null
+  face_find_consent_version?: string | null
 }
 
 export type MomentDoc = {
@@ -84,7 +86,24 @@ export type MomentDoc = {
   rating_count: number
   is_highlight?: boolean
   ai_note?: string
+  face_indexed_at?: number | null
   created_at: number
+}
+
+export type FaceBox = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type FaceDoc = {
+  moment_id: string
+  media_url: string
+  descriptor: number[]
+  box: FaceBox
+  created_at: number
+  indexed_by_uid: string
 }
 
 export type UserDoc = {

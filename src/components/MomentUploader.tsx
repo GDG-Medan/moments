@@ -1,15 +1,16 @@
 import { addDoc, collection, doc, increment, updateDoc } from 'firebase/firestore'
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
 import { useEffect, useRef, useState } from 'react'
+import { AspectCropEditor } from './AspectCropEditor'
 import { getDb, getFirebaseStorage, type MomentDoc } from '../lib/firebase'
 import {
-  compressImage,
-  isImageFile,
-  isVideoFile,
-  type FilterPreset,
-} from '../lib/media'
+  DEFAULT_CROP,
+  renderFramedPhotoFromFile,
+  type AspectPresetId,
+  type CropState,
+} from '../lib/frame'
+import { isImageFile, isVideoFile, type FilterPreset } from '../lib/media'
 import { POINTS_UPLOAD } from '../lib/points'
-import { applyTwibbon } from '../lib/twibbon'
 
 type Props = {
   eventId: string
@@ -34,6 +35,8 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
   const streamRef = useRef<MediaStream | null>(null)
   const [filter, setFilter] = useState<FilterPreset>('vivid')
   const [useTwibbon, setUseTwibbon] = useState(true)
+  const [aspectId, setAspectId] = useState<AspectPresetId>('1:1')
+  const [crop, setCrop] = useState<CropState>(DEFAULT_CROP)
   const [cameraOn, setCameraOn] = useState(false)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -50,7 +53,6 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
     }
   }, [])
 
-  // Attach stream after <video> is mounted (fixes blank preview on mobile/desktop).
   useEffect(() => {
     const video = videoRef.current
     const stream = streamRef.current
@@ -60,15 +62,7 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
     video.muted = true
     video.setAttribute('playsinline', 'true')
     video.setAttribute('webkit-playsinline', 'true')
-
-    const play = async () => {
-      try {
-        await video.play()
-      } catch {
-        // Autoplay can fail until a later gesture; stream is still visible after play() from capture tap.
-      }
-    }
-    void play()
+    void video.play().catch(() => undefined)
 
     return () => {
       video.srcObject = null
@@ -85,9 +79,12 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
     let cancelled = false
     void (async () => {
       try {
-        const blob = useTwibbon
-          ? await applyTwibbon(draft.file, twibbonPath, { filter })
-          : await compressImage(draft.file, { filter })
+        const blob = await renderFramedPhotoFromFile(draft.file, {
+          aspectId,
+          crop,
+          filter,
+          twibbonUrl: useTwibbon ? twibbonPath : null,
+        })
         if (cancelled) return
         const url = URL.createObjectURL(blob)
         setProcessedPreview((prev) => {
@@ -105,7 +102,7 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
     return () => {
       cancelled = true
     }
-  }, [draft, filter, useTwibbon, twibbonPath])
+  }, [draft, filter, useTwibbon, twibbonPath, aspectId, crop])
 
   function releaseStream() {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -133,7 +130,6 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
       })
       streamRef.current = stream
       setFacingMode(mode)
-      // Mount video first; effect attaches srcObject.
       setCameraOn(true)
     } catch {
       setError('Camera permission denied or unavailable. You can still pick a file.')
@@ -145,7 +141,6 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
     const video = videoRef.current
     if (!video) return
 
-    // Wait a frame if metadata not ready yet.
     if (!video.videoWidth) {
       await new Promise<void>((resolve) => {
         const onReady = () => {
@@ -161,30 +156,30 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
       return
     }
 
+    // Keep native camera aspect; crop/ratio happens in the editor.
+    const maxEdge = 1600
+    const scale = Math.min(1, maxEdge / Math.max(video.videoWidth, video.videoHeight))
+    const width = Math.max(1, Math.round(video.videoWidth * scale))
+    const height = Math.max(1, Math.round(video.videoHeight * scale))
     const canvas = document.createElement('canvas')
-    const size = Math.min(Math.max(video.videoWidth, video.videoHeight), 1600)
-    canvas.width = size
-    canvas.height = size
+    canvas.width = width
+    canvas.height = height
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const scale = Math.max(size / video.videoWidth, size / video.videoHeight)
-    const drawW = video.videoWidth * scale
-    const drawH = video.videoHeight * scale
-    const dx = (size - drawW) / 2
-    const dy = (size - drawH) / 2
-
     if (facingMode === 'user') {
-      ctx.translate(size, 0)
+      ctx.translate(width, 0)
       ctx.scale(-1, 1)
     }
-    ctx.drawImage(video, dx, dy, drawW, drawH)
+    ctx.drawImage(video, 0, 0, width, height)
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92),
     )
     if (!blob) return
     const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' })
+    setAspectId(width === height ? '1:1' : width > height ? '16:9' : '4:5')
+    setCrop(DEFAULT_CROP)
     setDraft({
       kind: 'photo',
       file,
@@ -206,6 +201,8 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
       setError('Please choose a photo or video')
       return
     }
+    setAspectId('1:1')
+    setCrop(DEFAULT_CROP)
     setDraft({ kind: 'photo', file, previewUrl: URL.createObjectURL(file) })
     stopCamera()
   }
@@ -217,6 +214,7 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
     setProcessedPreview(null)
     setProcessedBlob(null)
     setProgress(null)
+    setCrop(DEFAULT_CROP)
   }
 
   async function confirmUpload() {
@@ -237,9 +235,16 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
         contentType = draft.file.type || 'video/mp4'
         extension = 'mp4'
       } else {
-        blob = processedBlob ?? (await compressImage(draft.file, { filter }))
+        blob =
+          processedBlob ??
+          (await renderFramedPhotoFromFile(draft.file, {
+            aspectId,
+            crop,
+            filter,
+            twibbonUrl: useTwibbon ? twibbonPath : null,
+          }))
         mediaType = 'photo'
-        twibbonApplied = useTwibbon
+        twibbonApplied = useTwibbon && aspectId === '1:1'
         contentType = 'image/jpeg'
         extension = 'jpg'
       }
@@ -263,10 +268,25 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
         created_at: Date.now(),
       }
 
-      await addDoc(collection(getDb(), 'events', eventId, 'moments'), moment)
+      const momentRef = await addDoc(collection(getDb(), 'events', eventId, 'moments'), moment)
       await updateDoc(doc(getDb(), 'users', uid), { points: increment(POINTS_UPLOAD) })
       discardDraft()
       onUploaded()
+
+      // Non-blocking face index — must not affect upload success UX.
+      if (mediaType === 'photo') {
+        void import('../lib/face-index')
+          .then(({ indexMomentFaces }) =>
+            indexMomentFaces({
+              eventId,
+              momentId: momentRef.id,
+              mediaUrl,
+              mediaType,
+              indexedByUid: uid,
+            }),
+          )
+          .catch(() => undefined)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -279,7 +299,7 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
     <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 dark:border-slate-600 dark:bg-slate-900">
       <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Capture a moment</h3>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Live camera with filters. Edit locally, then confirm before upload.
+        Live camera, crop to IG ratios, zoom/pan locally, then confirm upload.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -305,7 +325,7 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
           checked={useTwibbon}
           onChange={(e) => setUseTwibbon(e.target.checked)}
         />
-        Apply GDG twibbon (photos)
+        Apply GDG twibbon on 1:1 exports
       </label>
 
       {!draft && (
@@ -316,22 +336,15 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
               muted
               playsInline
               autoPlay
-              className={`aspect-square w-full bg-black object-cover ${
+              className={`aspect-[4/5] w-full bg-black object-cover ${
                 cameraOn ? (facingMode === 'user' ? 'scale-x-[-1]' : '') : 'hidden'
               }`}
               style={{ filter: FILTER_CSS[filter] }}
             />
             {!cameraOn && (
-              <div className="flex aspect-square items-center justify-center text-sm text-slate-400">
+              <div className="flex aspect-[4/5] items-center justify-center text-sm text-slate-400">
                 Camera preview
               </div>
-            )}
-            {cameraOn && useTwibbon && (
-              <img
-                src={twibbonPath}
-                alt=""
-                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-              />
             )}
           </div>
 
@@ -389,19 +402,39 @@ export function MomentUploader({ eventId, twibbonPath, uid, displayName, onUploa
 
       {draft && (
         <div className="mt-4 space-y-3">
-          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Review before upload</p>
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+            Review, crop & export ratio
+          </p>
           {draft.kind === 'video' ? (
             <video
               src={draft.previewUrl}
               controls
-              className="aspect-square w-full rounded-xl bg-black object-contain"
+              className="aspect-video w-full rounded-xl bg-black object-contain"
             />
           ) : (
-            <img
-              src={processedPreview || draft.previewUrl}
-              alt="Preview"
-              className="aspect-square w-full rounded-xl object-cover"
-            />
+            <>
+              <AspectCropEditor
+                imageUrl={draft.previewUrl}
+                aspectId={aspectId}
+                crop={crop}
+                onAspectChange={setAspectId}
+                onCropChange={setCrop}
+                cssFilter={FILTER_CSS[filter]}
+                twibbonUrl={useTwibbon ? twibbonPath : null}
+              />
+              {processedPreview && (
+                <div>
+                  <p className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Final export preview
+                  </p>
+                  <img
+                    src={processedPreview}
+                    alt="Export preview"
+                    className="max-h-64 w-full rounded-xl object-contain bg-slate-100 dark:bg-slate-950"
+                  />
+                </div>
+              )}
+            </>
           )}
           <div className="grid grid-cols-2 gap-2">
             <button

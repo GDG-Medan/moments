@@ -24,6 +24,9 @@ ui-debug.log
 functions/lib
 functions/node_modules
 
+# Local planning docs (keep out of git)
+docs/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
