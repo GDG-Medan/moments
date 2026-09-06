@@ -1,4 +1,6 @@
+import { isBrandTwibbon } from './fonts'
 import { loadImageFromFile, type FilterPreset } from './media'
+import { drawTwibbonChrome } from './twibbon-chrome'
 
 const FILTER_CSS: Record<FilterPreset, string> = {
   none: 'none',
@@ -25,10 +27,7 @@ export async function applyTwibbon(
   const quality = options?.quality ?? 0.85
   const filter = options?.filter ?? 'none'
 
-  const [photo, overlay] = await Promise.all([
-    loadImageFromFile(file),
-    loadImageFromUrl(twibbonUrl),
-  ])
+  const photo = await loadImageFromFile(file)
 
   const size = Math.min(maxEdge, Math.max(photo.width, photo.height, 1080))
   const canvas = document.createElement('canvas')
@@ -46,7 +45,13 @@ export async function applyTwibbon(
   ctx.filter = FILTER_CSS[filter]
   ctx.drawImage(photo, dx, dy, drawW, drawH)
   ctx.filter = 'none'
-  ctx.drawImage(overlay, 0, 0, size, size)
+
+  if (isBrandTwibbon(twibbonUrl)) {
+    await drawTwibbonChrome(ctx, size)
+  } else {
+    const overlay = await loadImageFromUrl(twibbonUrl)
+    ctx.drawImage(overlay, 0, 0, size, size)
+  }
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob((b) => resolve(b), 'image/jpeg', quality),

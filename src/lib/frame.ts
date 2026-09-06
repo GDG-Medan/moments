@@ -1,4 +1,6 @@
+import { isBrandTwibbon } from './fonts'
 import { loadImageFromFile, type FilterPreset } from './media'
+import { drawTwibbonChrome } from './twibbon-chrome'
 
 export type AspectPresetId = 'original' | '1:1' | '4:5' | '9:16' | '16:9'
 
@@ -150,8 +152,12 @@ export async function renderFramedPhotoFromImage(
 
   // Twibbon is designed square — apply only on 1:1 frames.
   if (options.twibbonUrl && preset.id === '1:1') {
-    const overlay = await loadImageFromUrl(options.twibbonUrl)
-    ctx.drawImage(overlay, 0, 0, width, height)
+    if (isBrandTwibbon(options.twibbonUrl)) {
+      await drawTwibbonChrome(ctx, Math.min(width, height))
+    } else {
+      const overlay = await loadImageFromUrl(options.twibbonUrl)
+      ctx.drawImage(overlay, 0, 0, width, height)
+    }
   }
 
   const blob = await new Promise<Blob | null>((resolve) =>

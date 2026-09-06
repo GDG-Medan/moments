@@ -19,6 +19,7 @@ Members join an event room with a QR code, upload photos or videos, apply chapte
 ## Tech stack
 
 - Vite + React + TypeScript
+- Google Sans (same brand fonts as gdgmedan.com)
 - Firebase Authentication (anonymous)
 - Cloud Firestore
 - Cloud Storage

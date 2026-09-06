@@ -7,6 +7,8 @@ import {
   type AspectPresetId,
   type CropState,
 } from '../lib/frame'
+import { isBrandTwibbon } from '../lib/fonts'
+import { drawTwibbonChrome } from '../lib/twibbon-chrome'
 
 type Props = {
   imageUrl: string
@@ -87,34 +89,47 @@ export function AspectCropEditor({
     const photo = photoRef.current
     if (!canvas || !viewport || !photo || !ready) return
 
+    let cancelled = false
+    let paintToken = 0
+
     const paint = () => {
-      const rect = viewport.getBoundingClientRect()
-      const width = Math.max(1, Math.round(rect.width * window.devicePixelRatio))
-      const height = Math.max(1, Math.round(rect.height * window.devicePixelRatio))
-      canvas.width = width
-      canvas.height = height
-      canvas.style.width = `${rect.width}px`
-      canvas.style.height = `${rect.height}px`
+      const token = ++paintToken
+      void (async () => {
+        const rect = viewport.getBoundingClientRect()
+        const width = Math.max(1, Math.round(rect.width * window.devicePixelRatio))
+        const height = Math.max(1, Math.round(rect.height * window.devicePixelRatio))
+        canvas.width = width
+        canvas.height = height
+        canvas.style.width = `${rect.width}px`
+        canvas.style.height = `${rect.height}px`
 
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      ctx.fillStyle = '#0f172a'
-      ctx.fillRect(0, 0, width, height)
+        const ctx = canvas.getContext('2d')
+        if (!ctx || cancelled || token !== paintToken) return
+        ctx.fillStyle = '#0f172a'
+        ctx.fillRect(0, 0, width, height)
 
-      const draw = computeCoverDraw(photo.naturalWidth, photo.naturalHeight, width, height, crop)
-      ctx.filter = FILTER_TO_CANVAS[cssFilter] ?? cssFilter
-      ctx.drawImage(photo, draw.dx, draw.dy, draw.dw, draw.dh)
-      ctx.filter = 'none'
+        const draw = computeCoverDraw(photo.naturalWidth, photo.naturalHeight, width, height, crop)
+        ctx.filter = FILTER_TO_CANVAS[cssFilter] ?? cssFilter
+        ctx.drawImage(photo, draw.dx, draw.dy, draw.dw, draw.dh)
+        ctx.filter = 'none'
 
-      if (twibbonUrl && aspectId === '1:1' && overlayRef.current?.complete) {
-        ctx.drawImage(overlayRef.current, 0, 0, width, height)
-      }
+        if (twibbonUrl && aspectId === '1:1') {
+          if (isBrandTwibbon(twibbonUrl)) {
+            await drawTwibbonChrome(ctx, Math.min(width, height))
+          } else if (overlayRef.current?.complete) {
+            ctx.drawImage(overlayRef.current, 0, 0, width, height)
+          }
+        }
+      })()
     }
 
     paint()
     const observer = new ResizeObserver(() => paint())
     observer.observe(viewport)
-    return () => observer.disconnect()
+    return () => {
+      cancelled = true
+      observer.disconnect()
+    }
   }, [aspectId, crop, cssFilter, ready, twibbonUrl, imageUrl, natural.w, natural.h])
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
