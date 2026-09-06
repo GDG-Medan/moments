@@ -106,6 +106,7 @@ export function EventPage({ user, profile, onPointsMaybeChanged }: Props) {
   }
 
   const isOrganizer = event.organizer_uid === user.uid
+  const hasContributed = moments.some((m) => m.data.author_uid === user.uid)
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -120,9 +121,14 @@ export function EventPage({ user, profile, onPointsMaybeChanged }: Props) {
             {isOrganizer ? ' · Organizer' : ' · Member'}
           </p>
         </div>
-        {isOrganizer && (
-          <NavButton to={`/e/${event.id}/highlights`}>Highlights →</NavButton>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {hasContributed && (
+            <NavButton to={`/e/${event.id}/find-me`}>Find photos of me →</NavButton>
+          )}
+          {isOrganizer && (
+            <NavButton to={`/e/${event.id}/highlights`}>Highlights →</NavButton>
+          )}
+        </div>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">

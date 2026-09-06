@@ -43,6 +43,21 @@ service cloud.firestore {
         allow delete: if isOwner(uid) || isOrganizer(eventId);
       }
 
+      match /faces/{faceId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.keys().hasAll([
+            'moment_id', 'media_url', 'descriptor', 'box', 'created_at', 'indexed_by_uid'
+          ])
+          && request.resource.data.indexed_by_uid == request.auth.uid
+          && request.resource.data.descriptor is list;
+        allow delete: if signedIn() && (
+          resource.data.indexed_by_uid == request.auth.uid
+          || isOrganizer(eventId)
+        );
+        allow update: if false;
+      }
+
       match /moments/{momentId} {
         allow read: if signedIn();
         allow create: if signedIn()
@@ -56,6 +71,8 @@ service cloud.firestore {
           )
           || request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['rating_sum', 'rating_count'])
+          || request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['face_indexed_at'])
         );
         allow delete: if resource.data.author_uid == request.auth.uid
           || isOrganizer(eventId);

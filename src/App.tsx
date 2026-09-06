@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { DisplayNameGate } from './components/DisplayNameGate'
 import { SiteFooter } from './components/SiteFooter'
@@ -6,6 +7,11 @@ import { useTheme } from './hooks/useTheme'
 import { EventPage } from './pages/EventPage'
 import { HighlightsPage } from './pages/HighlightsPage'
 import { HomePage } from './pages/HomePage'
+
+const FindMyPhotosPage = lazy(async () => {
+  const mod = await import('./pages/FindMyPhotosPage')
+  return { default: mod.FindMyPhotosPage }
+})
 
 export default function App() {
   const { user, profile, loading, configured, ensureProfile, refreshProfile } = useAuth()
@@ -83,6 +89,20 @@ export default function App() {
                   profile={profile}
                   onPointsMaybeChanged={() => void refreshProfile()}
                 />
+              }
+            />
+            <Route
+              path="/e/:eventId/find-me"
+              element={
+                <Suspense
+                  fallback={
+                    <p className="px-4 py-10 text-center text-slate-600 dark:text-slate-400">
+                      Loading Find photos of me…
+                    </p>
+                  }
+                >
+                  <FindMyPhotosPage user={user} profile={profile} />
+                </Suspense>
               }
             />
             <Route
