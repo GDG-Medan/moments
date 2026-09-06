@@ -90,7 +90,7 @@ export function MomentCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <article className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
       {moment.media_type === 'video' ? (
         <video
           src={moment.media_url}
@@ -123,14 +123,14 @@ export function MomentCard({
           </p>
         ) : (
           <div
-            className={`relative z-10 rounded-xl border border-[#FFD700]/40 bg-slate-50 p-3 dark:bg-slate-800/60 ${
+            className={`relative z-10 min-w-0 rounded-xl border border-[#FFD700]/40 bg-slate-50 p-3 dark:bg-slate-800/60 ${
               ratingBusy ? 'opacity-60' : ''
             }`}
           >
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               Tap to rate {myRating > 0 ? `· your score ${myRating}/5` : ''}
             </p>
-            <RatingStars value={myRating} onChange={onRate} size="lg" />
+            <RatingStars value={myRating} onChange={onRate} size="md" />
           </div>
         )}
 
