@@ -9,6 +9,10 @@ const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'gdg
 // Gemini 3.1 Flash-Lite is served on global / multi-region endpoints, not us-central1.
 // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-lite
 const VERTEX_LOCATION = 'global'
+// @google-cloud/vertexai@1.12.0 prefixes location onto the host (`global-aiplatform...`),
+// which 404s HTML and surfaces as "Unexpected token '<'". Override to the real global host.
+// https://github.com/googleapis/nodejs-vertexai/issues/539
+const VERTEX_API_ENDPOINT = 'aiplatform.googleapis.com'
 const VERTEX_MODEL = 'gemini-3.1-flash-lite'
 
 type CaptionRequest = {
@@ -36,7 +40,11 @@ function parseJsonObject(text: string): Record<string, unknown> {
 }
 
 function getVertexModel() {
-  const vertex = new VertexAI({ project: PROJECT_ID, location: VERTEX_LOCATION })
+  const vertex = new VertexAI({
+    project: PROJECT_ID,
+    location: VERTEX_LOCATION,
+    apiEndpoint: VERTEX_API_ENDPOINT,
+  })
   return vertex.getGenerativeModel({ model: VERTEX_MODEL })
 }
 
