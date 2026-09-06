@@ -109,7 +109,7 @@ export function EventPage({ user, profile, onPointsMaybeChanged }: Props) {
   const hasContributed = moments.some((m) => m.data.author_uid === user.uid)
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-3">
           <NavButton to="/">← Home</NavButton>
@@ -131,7 +131,7 @@ export function EventPage({ user, profile, onPointsMaybeChanged }: Props) {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
         <div className="space-y-4 lg:order-1">
           <MomentUploader
             eventId={event.id}
@@ -152,7 +152,7 @@ export function EventPage({ user, profile, onPointsMaybeChanged }: Props) {
               No moments yet. Be the first to capture the vibe.
             </p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {moments.map((item) => (
                 <MomentCard
                   key={item.id}

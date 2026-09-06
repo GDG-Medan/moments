@@ -44,7 +44,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_#dbeafe,_#f8fafc_45%,_#eff6ff)] dark:bg-[radial-gradient(circle_at_top,_#0f172a,_#020617_50%,_#0b1220)]">
       <header className="border-b border-slate-200/80 bg-white/70 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <div className="flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 hover:opacity-90">
             <img src="/favicon.svg" alt="" className="h-8 w-8" />
             <span className="font-bold text-slate-900 dark:text-slate-50">GDG Moments</span>
