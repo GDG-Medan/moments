@@ -6,8 +6,10 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 initializeApp()
 
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'gdg-moments'
-const VERTEX_LOCATION = 'us-central1'
-const VERTEX_MODEL = 'gemini-2.0-flash-lite'
+// Gemini 3.1 Flash-Lite is served on global / multi-region endpoints, not us-central1.
+// https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-1-flash-lite
+const VERTEX_LOCATION = 'global'
+const VERTEX_MODEL = 'gemini-3.1-flash-lite'
 
 type CaptionRequest = {
   event_id?: string
